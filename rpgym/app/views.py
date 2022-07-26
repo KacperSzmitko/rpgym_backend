@@ -257,7 +257,12 @@ class CreateTestData(APIView):
                                         user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
         t8 = TrainModule.objects.create(name="t10",
                                         user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
-        p1 = TrainPlan.objects.create(name="plan1")
+        p1 = TrainPlan.objects.create(name="plan1", user=user)
+        p1 = TrainPlan.objects.create(name="plan2", user=user)
+        p1 = TrainPlan.objects.create(name="plan3", user=user)
+        p1 = TrainPlan.objects.create(name="plan4", user=user)
+        p1 = TrainPlan.objects.create(name="plan5", user=user)
+        p1 = TrainPlan.objects.create(name="plan6", user=user)
         pm1 = PlanModule.objects.create(module=t1, plan=p1)
         pm2 = PlanModule.objects.create(module=t2, plan=p1)
         pm3 = PlanModule.objects.create(module=t3, plan=p1)
