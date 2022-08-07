@@ -78,7 +78,7 @@ class TrainModuleViewSet(ModelViewSet):
             exclude = ('user', 'creation_date')
 
         def get_exercise(self, obj):
-            return obj.exercise.name
+            return obj.exercise.id
 
     class InputSerializer(serializers.ModelSerializer):
         user = serializers.SlugRelatedField(slug_field='id', read_only=True)

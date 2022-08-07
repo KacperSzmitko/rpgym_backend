@@ -1,12 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from app.views import PlanViewSet, MusclePartsView, MuscleLevelList, TrainModuleViewSet, CreateTestData, ExercisesList
+
+app_name = "app"
 router = DefaultRouter()
+
 router.register(r'muscle_parts', MusclePartsView, basename='user')
 router.register(r'train_module', TrainModuleViewSet, basename='train_module')
 router.register(r'plan', PlanViewSet, basename='plan')
-app_name = "app"
-
 urlpatterns = [
     path("", include(router.urls)),
     path("muscle_levels/", MuscleLevelList.as_view()),
