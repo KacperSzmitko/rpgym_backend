@@ -1,5 +1,4 @@
 from django.http import HttpRequest
-from isort import code
 from rest_framework.views import APIView
 from rest_framework import serializers
 from django.shortcuts import redirect

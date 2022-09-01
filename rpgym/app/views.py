@@ -13,8 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from users.models import User
 from django.db import IntegrityError
 from rest_framework.decorators import action
-
-# TODO Endpoint do planow i modułów co pobiera WSZYSTKO
+from django.db.models.query import QuerySet
 
 class MusclePartsView(ModelViewSet):
     class MusclePartSeriazlier(serializers.ModelSerializer):
@@ -72,6 +71,7 @@ class TrainModuleViewSet(ModelViewSet):
 
     class OutputSerializer(serializers.ModelSerializer):
         exercise = serializers.SerializerMethodField()
+        muscle_part_id = serializers.SerializerMethodField()
 
         class Meta:
             model = TrainModule
@@ -79,6 +79,9 @@ class TrainModuleViewSet(ModelViewSet):
 
         def get_exercise(self, obj):
             return obj.exercise.id
+
+        def get_muscle_part_id(self, obj):
+            return obj.exercise.muscle_part.id
 
     class InputSerializer(serializers.ModelSerializer):
         user = serializers.SlugRelatedField(slug_field='id', read_only=True)
@@ -120,10 +123,10 @@ class TrainModuleViewSet(ModelViewSet):
     pagination_class = Pagination
     serializer_class = OutputSerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet:
         return TrainModule.objects.filter(user=self.request.user)
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> serializers.Serializer:
         if self.request.method == 'GET':
             return self.OutputSerializer
         return self.InputSerializer
@@ -189,19 +192,35 @@ class PlanViewSet(ModelViewSet):
         return Response(data=result.data, status=201)
 
     @action(detail=False, methods=['get'])
-    def all(self, request):
+    def all(self, request) -> Response:
         queryset = self.get_queryset()
         serializer = self.get_serializer_class()(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def current(self, request) -> Response:
+        """
+        If there is a plan that matches current cycle 200 is returned with this plan \n
+        Otherwise 201 is returned with all plans
+        """
+        try:
+            queryset = self.get_queryset().get(cycle=self.request.user.current_cycle)
+        except TrainPlan.DoesNotExist:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer_class()(queryset, many=True)
+            return Response(serializer.data, status=201)
+        serializer = self.get_serializer_class()(queryset, many=False)
+        return Response(serializer.data, status=200)
+        
 
     permission_classes = [IsAuthenticated]
     pagination_class = Pagination
     serializer_class = OutputSerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet:
         return TrainPlan.objects.filter(user=self.request.user)
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> serializers.Serializer:
         if self.request.method == 'GET':
             return self.OutputSerializer
         return self.InputSerializer

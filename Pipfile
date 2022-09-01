@@ -6,6 +6,7 @@ verify_ssl = true
 [dev-packages]
 pylint = "*"
 autopep8 = "*"
+black = "*"
 
 [packages]
 django = "*"
@@ -13,6 +14,10 @@ djangorestframework = "*"
 djangorestframework-simplejwt = "*"
 attrs = "*"
 django-cors-headers = "*"
+requests = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.10"
+
+[pipenv]
+allow_prereleases = true

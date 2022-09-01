@@ -1,6 +1,7 @@
 from datetime import datetime
 from django.db import models
 from users.models import User
+from django.core import validators
 
 
 class MusclePart(models.Model):
@@ -11,8 +12,7 @@ class MusclePart(models.Model):
 
 
 class Exercise(models.Model):
-    muscle_part = models.ForeignKey(
-        MusclePart, on_delete=models.SET_NULL, null=True)
+    muscle_part = models.ForeignKey(MusclePart, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=128, unique=True)
     max_weight = models.DecimalField(default=0, decimal_places=2, max_digits=5)
 
@@ -41,13 +41,11 @@ class TrainModule(models.Model):
         return str(self.pk)
 
     class Meta:
-        ordering = ['-creation_date', 'pk']
+        ordering = ["-creation_date", "pk"]
 
     def save(self, *args, **kwargs) -> None:
         self.current_level = int((self.weight / self.exercise.max_weight) * 100)
         return super().save(*args, **kwargs)
-
-    
 
 
 # class TrainUnitReps(models.Model):
@@ -61,10 +59,7 @@ class TrainModule(models.Model):
 class TrainPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=128)
-    cycle = models.IntegerField(default=None, null=True)
-
-    class Meta:
-        unique_together = ("name", "cycle")
+    cycle = models.IntegerField(default=None, null=True, unique=True, validators=[validators.MinValueValidator(0)])
 
     def __str__(self) -> str:
         return self.name
@@ -78,14 +73,15 @@ class PlanModule(models.Model):
         return str(self.pk)
 
 
-
 class TrainHistory(models.Model):
-    plan_module = models.ForeignKey(
-        PlanModule, on_delete=models.CASCADE, related_name="history", null=True)
+    plan_module = models.ForeignKey(PlanModule, on_delete=models.CASCADE, related_name="history", null=True)
     date = models.DateTimeField(auto_now_add=True)
     reps = models.JSONField(default=None, null=True)
 
     def save(self, *args, **kwargs) -> None:
+        """
+        Every time we end module, recalcualte progress and current level
+        """
         max_reps, reps_diff = 0, 0
         for module_reps, train_reps in zip(self.plan_module.module.reps, self.reps):
             x = module_reps - train_reps
@@ -101,7 +97,7 @@ class TrainHistory(models.Model):
         return super().save(*args, **kwargs)
 
     class Meta:
-        ordering = ['-date']
+        ordering = ["-date"]
 
     def __str__(self) -> str:
         return str(self.pk)
@@ -116,6 +112,3 @@ class TrainHistory(models.Model):
 # class HistoryUnit(models.Model):
 #     train_unit = models.ForeignKey(TrainUnit, on_delete=models.CASCADE)
 #     train = models.ForeignKey(TrainHistory, on_delete=models.CASCADE)
-    
-
-
