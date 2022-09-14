@@ -60,7 +60,8 @@ class TrainPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=128)
     cycle = models.IntegerField(default=None, null=True, unique=True, validators=[validators.MinValueValidator(0)])
-
+    started = models.BooleanField(default=False)
+    
     def __str__(self) -> str:
         return self.name
 

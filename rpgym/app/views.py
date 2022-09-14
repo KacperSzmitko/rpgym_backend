@@ -254,17 +254,16 @@ class TrainStartView(APIView):
     class InputSerializer(serializers.Serializer):
         plan = serializers.PrimaryKeyRelatedField(queryset=TrainPlan.objects.all())
 
-    class OutputSerializer(serializers.ModelSerializer):
-        class Meta:
-            model = TrainPlan
-            fields = '__all__'
-
     def post(self, request: Request, *args, **kwargs) -> Response:
         serializer = self.InputSerializer(data=request.data)
         serializer.is_valid(True)
-        PlanViewSet.OutputSerializer(serializer.validated_data["plan"])
-        return Response(status=200)
-        return Response(status=400)
+        plan = serializer.validated_data["plan"]
+        request.user.current_train = plan
+        request.user.save()
+        plan.started = True
+        plan.save()
+        response = PlanViewSet.OutputSerializer(plan)
+        return Response(response.data, status=200)
 
 
 class ExercisesList(generics.ListAPIView):
