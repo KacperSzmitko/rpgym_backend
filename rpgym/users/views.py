@@ -5,36 +5,35 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.request import Request
+
 
 class UserViewSet(ModelViewSet):
     class UserSerializer(serializers.Serializer):
-        pk = serializers.CharField(required=False, default='', read_only=True)
+        pk = serializers.CharField(required=False, default="", read_only=True)
         email = serializers.EmailField(validators=[UniqueValidator(User.objects.all())])
-        first_name = serializers.CharField(required=False, default='')
-        last_name = serializers.CharField(required=False, default='')
-        password = serializers.CharField(required=False, default='', write_only=True)
+        first_name = serializers.CharField(required=False, default="")
+        last_name = serializers.CharField(required=False, default="")
+        password = serializers.CharField(required=False, default="", write_only=True)
         wieght = serializers.FloatField()
         max_cycle = serializers.FloatField()
         current_cycle = serializers.FloatField()
 
-
-        def create(self, validated_data):
+        def create(self, validated_data: dict):
             user = User(**validated_data)
-            user.set_password(validated_data['password'])
+            user.set_password(validated_data["password"])
             user.save()
             return user
 
-        def update(self, instance, validated_data):
-            if 'password' in validated_data:
-                instance.set_password(validated_data['password'])
+        def update(self, instance: User, validated_data: dict):
+            if "password" in validated_data:
+                instance.set_password(validated_data["password"])
             instance.save()
             return instance
 
-
-    @action(detail=False, methods=['get'])
-    def own(self, request):
-        """Get current logged user object or 401
-        """
+    @action(detail=False, methods=["get"])
+    def own(self, request: Request):
+        """Get current logged user object or 401"""
         if request.user.is_authenticated:
             queryset = request.user
             serializer = self.get_serializer_class()(queryset)

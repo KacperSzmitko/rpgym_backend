@@ -44,9 +44,12 @@ class User(AbstractUser):
     wieght = models.FloatField(default=0)
     max_cycle = models.IntegerField(default=0)
     current_cycle = models.IntegerField(default=0)
+    last_login = models.DateTimeField(auto_now_add=True, null=True)
+    current_train = models.ForeignKey(
+        "app.TrainPlan", on_delete=models.SET_NULL, default=None, null=True, related_name="current_train"
+    )
     # secret_key = models.CharField(
     #     max_length=255, default=get_random_secret_key)
     objects = CustomUserManager()
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
-

@@ -15,11 +15,13 @@ from django.db import IntegrityError
 from rest_framework.decorators import action
 from django.db.models.query import QuerySet
 
+
 class MusclePartsView(ModelViewSet):
     class MusclePartSeriazlier(serializers.ModelSerializer):
         class Meta:
             model = MusclePart
-            fields = '__all__'
+            fields = "__all__"
+
     queryset = MusclePart.objects.all()
     serializer_class = MusclePartSeriazlier
 
@@ -45,19 +47,16 @@ class MuscleLevelList(APIView):
         user_modules = PlanModule.objects.filter(module__user=request.user)
 
         for muscle in muscles:
-            user_muscle_modules = user_modules.filter(
-                module__exercise__muscle_part=muscle)
+            user_muscle_modules = user_modules.filter(module__exercise__muscle_part=muscle)
             units_progres, levels = [], []
             for user_muscle_module in user_muscle_modules:
                 # For every muscle part get levels from every train module using this part
                 levels.append(user_muscle_module.module.current_level)
                 units_progres.append(user_muscle_module.module.progress)
             try:
-                result.append(self.OutputModel(
-                    muscle.name, int(mean(levels)), mean(units_progres)))
+                result.append(self.OutputModel(muscle.name, int(mean(levels)), mean(units_progres)))
             except StatisticsError:
-                result.append(self.OutputModel(
-                    muscle.name, 0, 0))
+                result.append(self.OutputModel(muscle.name, 0, 0))
         result = self.OutputSerializer(result, many=True)
         return Response(result.data)
 
@@ -75,7 +74,7 @@ class TrainModuleViewSet(ModelViewSet):
 
         class Meta:
             model = TrainModule
-            exclude = ('user', 'creation_date')
+            exclude = ("user", "creation_date")
 
         def get_exercise(self, obj):
             return obj.exercise.id
@@ -84,26 +83,17 @@ class TrainModuleViewSet(ModelViewSet):
             return obj.exercise.muscle_part.id
 
     class InputSerializer(serializers.ModelSerializer):
-        user = serializers.SlugRelatedField(slug_field='id', read_only=True)
-        exercise = serializers.PrimaryKeyRelatedField(
-            read_only=False, queryset=Exercise.objects.all())
+        user = serializers.SlugRelatedField(slug_field="id", read_only=True)
+        exercise = serializers.PrimaryKeyRelatedField(read_only=False, queryset=Exercise.objects.all())
         id = IntegerField(required=False)
 
         class Meta:
             model = TrainModule
-            fields = ('name',
-                      'exercise',
-                      'series',
-                      'weight',
-                      'level_weight_increase',
-                      'reps',
-                      'user',
-                      'id')
+            fields = ("name", "exercise", "series", "weight", "level_weight_increase", "reps", "user", "id")
 
         def validate(self, attrs):
-            if attrs['series'] != len(attrs['reps']):
-                raise serializers.ValidationError(
-                    {"detail": "Serie number doesnt match reps number"})
+            if attrs["series"] != len(attrs["reps"]):
+                raise serializers.ValidationError({"detail": "Serie number doesnt match reps number"})
             return super().validate(attrs)
 
     def create(self, request, *args, **kwargs):
@@ -113,8 +103,8 @@ class TrainModuleViewSet(ModelViewSet):
         result = self.OutputSerializer(obj)
         return Response(data=result.data, status=201)
 
-    @action(detail=False, methods=['get'])
-    def all(self, request):
+    @action(detail=False, methods=["get"])
+    def all(self, request: Request):
         queryset = self.get_queryset()
         serializer = self.get_serializer_class()(queryset, many=True)
         return Response(serializer.data)
@@ -127,7 +117,7 @@ class TrainModuleViewSet(ModelViewSet):
         return TrainModule.objects.filter(user=self.request.user)
 
     def get_serializer_class(self) -> serializers.Serializer:
-        if self.request.method == 'GET':
+        if self.request.method == "GET":
             return self.OutputSerializer
         return self.InputSerializer
 
@@ -141,77 +131,109 @@ class PlanViewSet(ModelViewSet):
 
     class OutputSerializer(serializers.ModelSerializer):
         modules = serializers.SerializerMethodField()
+
         class Meta:
             model = TrainPlan
-            exclude = ('user',)
+            exclude = ("user",)
 
         class ModulesSeriazlier(serializers.Serializer):
-            name = serializers.CharField()
-            id = serializers.IntegerField()
+            module = serializers.SerializerMethodField()
+            done = serializers.BooleanField()
+            order_in_plan = serializers.IntegerField()
+
+            class ModuleSeriazlier(serializers.Serializer):
+                name = serializers.CharField()
+                id = serializers.IntegerField()
+                
+            def get_module(self, obj: PlanModule):
+                return self.ModuleSeriazlier(obj.module).data
 
         def get_modules(self, obj: TrainPlan):
-            queryset = TrainModule.objects.filter(planmodule__plan=obj)
+            queryset = PlanModule.objects.filter(plan=obj)
             serializer = self.ModulesSeriazlier(queryset, many=True)
             return serializer.data
 
+
+
     class InputSerializer(serializers.ModelSerializer):
-        user = serializers.SlugRelatedField(slug_field='id', read_only=True)
+        user = serializers.SlugRelatedField(slug_field="id", read_only=True)
         modules = serializers.ListField(child=serializers.IntegerField())
         id = IntegerField(required=False)
 
         class Meta:
             model = TrainPlan
-            fields = ('name',
-                      'modules',
-                      'cycle',
-                      'user',
-                      'id')
+            fields = ("name", "modules", "cycle", "user", "id")
 
         def create(self, validated_data: dict):
-            modules = validated_data.pop("modules", None)
+            modules = validated_data.pop("modules", [])
             try:
                 plan = TrainPlan.objects.create(**validated_data)
             except IntegrityError:
                 raise serializers.ValidationError(
-                    {"detail": f"Cycle {validated_data['cycle']} is already set to other plan"})
-            if modules is not None:
-                for module_id in modules:
-                    try:
-                        module = TrainModule.objects.get(pk=module_id)
-                    except TrainModule.DoesNotExist:
-                        raise serializers.ValidationError(
-                            {"detail": f"Module with id {module_id} does not exist"})
-                    PlanModule.objects.create(plan=plan, module=module)
+                    {"detail": f"Cycle {validated_data['cycle']} is already set to other plan"}
+                )
+            for module_id in modules:
+                try:
+                    module = TrainModule.objects.get(pk=module_id)
+                except TrainModule.DoesNotExist:
+                    raise serializers.ValidationError({"detail": f"Module with id {module_id} does not exist"})
+                PlanModule.objects.create(plan=plan, module=module)
             return plan
 
-    def create(self, request, *args, **kwargs):
+        def update(self, instance, validated_data):
+            modules = validated_data.pop("modules", [])
+            try:
+                instance = super().update(instance, validated_data)
+            except IntegrityError:
+                raise serializers.ValidationError(
+                    {"detail": f"Cycle {validated_data['cycle']} is already set to other plan"}
+                )
+            pm = PlanModule.objects.filter(plan=instance)
+            items = pm.filter(~Q(module__id__in=modules))
+            items.delete()
+            for module_id in modules:
+                try:
+                    module = TrainModule.objects.get(pk=module_id)
+                except TrainModule.DoesNotExist:
+                    raise serializers.ValidationError({"detail": f"Module with id {module_id} does not exist"})
+                pm.update_or_create(module=module, defaults={"plan": instance})
+            return instance
+
+    def create(self, request: Request, *args, **kwargs):
         serialzier = self.get_serializer(data=request.data)
         serialzier.is_valid(raise_exception=True)
         obj = serialzier.save(user=self.request.user)
+        if obj.data.cycle == request.user.current_cycle:
+            request.user.current_train = obj
+            request.user.save()
         result = self.OutputSerializer(obj)
         return Response(data=result.data, status=201)
 
-    @action(detail=False, methods=['get'])
-    def all(self, request) -> Response:
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+        serializer = self.get_serializer(obj, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        result = self.OutputSerializer(obj)
+        return Response(data=result.data, status=201)
+
+    @action(detail=False, methods=["get"])
+    def all(self, request: Request) -> Response:
         queryset = self.get_queryset()
         serializer = self.get_serializer_class()(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
-    def current(self, request) -> Response:
-        """
-        If there is a plan that matches current cycle 200 is returned with this plan \n
-        Otherwise 201 is returned with all plans
-        """
-        try:
-            queryset = self.get_queryset().get(cycle=self.request.user.current_cycle)
-        except TrainPlan.DoesNotExist:
-            queryset = self.get_queryset()
-            serializer = self.get_serializer_class()(queryset, many=True)
-            return Response(serializer.data, status=201)
+    @action(detail=False, methods=["get"])
+    def current(self, request: Request) -> Response:
+        if request.user.current_train:
+            queryset = request.user.current_train
+        else:
+            try:
+                queryset = self.get_queryset().get(cycle=self.request.user.current_cycle)
+            except TrainPlan.DoesNotExist:
+                return Response(status=201)
         serializer = self.get_serializer_class()(queryset, many=False)
         return Response(serializer.data, status=200)
-        
 
     permission_classes = [IsAuthenticated]
     pagination_class = Pagination
@@ -221,18 +243,35 @@ class PlanViewSet(ModelViewSet):
         return TrainPlan.objects.filter(user=self.request.user)
 
     def get_serializer_class(self) -> serializers.Serializer:
-        if self.request.method == 'GET':
+        if self.request.method == "GET":
             return self.OutputSerializer
         return self.InputSerializer
 
 
-class ExercisesList(generics.ListAPIView):
+class TrainStartView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    class InputSerializer(serializers.Serializer):
+        plan = serializers.PrimaryKeyRelatedField(queryset=TrainPlan.objects.all())
 
     class OutputSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = TrainPlan
+            fields = '__all__'
 
+    def post(self, request: Request, *args, **kwargs) -> Response:
+        serializer = self.InputSerializer(data=request.data)
+        serializer.is_valid(True)
+        PlanViewSet.OutputSerializer(serializer.validated_data["plan"])
+        return Response(status=200)
+        return Response(status=400)
+
+
+class ExercisesList(generics.ListAPIView):
+    class OutputSerializer(serializers.ModelSerializer):
         class Meta:
             model = Exercise
-            fields = '__all__'
+            fields = "__all__"
 
     serializer_class = OutputSerializer
     queryset = Exercise.objects.all()
@@ -244,48 +283,54 @@ class CreateTestData(APIView):
         biceps = MusclePart.objects.create(name="biceps")
         chest = MusclePart.objects.create(name="klata")
         Exercise.objects.all().delete()
-        bs = Exercise.objects.create(
-            muscle_part=biceps, name="Biceps sztanga", max_weight=150)
-        bh = Exercise.objects.create(
-            muscle_part=biceps, name="Biceps hantle", max_weight=150)
-        ks = Exercise.objects.create(
-            muscle_part=chest, name="Klata sztanga", max_weight=200)
-        kh = Exercise.objects.create(
-            muscle_part=chest, name="Klata hantle", max_weight=200)
-        kc = Exercise.objects.create(
-            muscle_part=chest, name="Klata coś", max_weight=200)
-        user = User.objects.get(email=request.query_params.get('user'))
+        bs = Exercise.objects.create(muscle_part=biceps, name="Biceps sztanga", max_weight=150)
+        bh = Exercise.objects.create(muscle_part=biceps, name="Biceps hantle", max_weight=150)
+        ks = Exercise.objects.create(muscle_part=chest, name="Klata sztanga", max_weight=200)
+        kh = Exercise.objects.create(muscle_part=chest, name="Klata hantle", max_weight=200)
+        kc = Exercise.objects.create(muscle_part=chest, name="Klata coś", max_weight=200)
+        user = User.objects.get(email=request.query_params.get("user"))
         TrainModule.objects.all().delete()
-        t1 = TrainModule.objects.create(name="t1",
-                                        user=user, exercise=bs, series=4, weight=35, level_weight_increase=2.5, reps=[12, 12, 12, 8])  # 23 lv
-        t2 = TrainModule.objects.create(name="t2",
-                                        user=user, exercise=bh, series=3, weight=20, level_weight_increase=2.5, reps=[8, 8, 12])  # 13 lv
-        t3 = TrainModule.objects.create(name="t3",
-                                        user=user, exercise=kh, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 8])  # 20 lv
-        t4 = TrainModule.objects.create(name="t4",
-                                        user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
-        t5 = TrainModule.objects.create(name="t5",
-                                        user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
-        t6 = TrainModule.objects.create(name="t6",
-                                        user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
-        t7 = TrainModule.objects.create(name="t7",
-                                        user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
-        t8 = TrainModule.objects.create(name="t8",
-                                        user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
-        t8 = TrainModule.objects.create(name="t9",
-                                        user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
-        t8 = TrainModule.objects.create(name="t10",
-                                        user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12])  # 20 lv
+        t1 = TrainModule.objects.create(
+            name="t1", user=user, exercise=bs, series=4, weight=35, level_weight_increase=2.5, reps=[12, 12, 12, 8]
+        )  # 23 lv
+        t2 = TrainModule.objects.create(
+            name="t2", user=user, exercise=bh, series=3, weight=20, level_weight_increase=2.5, reps=[8, 8, 12]
+        )  # 13 lv
+        t3 = TrainModule.objects.create(
+            name="t3", user=user, exercise=kh, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 8]
+        )  # 20 lv
+        t4 = TrainModule.objects.create(
+            name="t4", user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12]
+        )  # 20 lv
+        t5 = TrainModule.objects.create(
+            name="t5", user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12]
+        )  # 20 lv
+        t6 = TrainModule.objects.create(
+            name="t6", user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12]
+        )  # 20 lv
+        t7 = TrainModule.objects.create(
+            name="t7", user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12]
+        )  # 20 lv
+        t8 = TrainModule.objects.create(
+            name="t8", user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12]
+        )  # 20 lv
+        t8 = TrainModule.objects.create(
+            name="t9", user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12]
+        )  # 20 lv
+        t8 = TrainModule.objects.create(
+            name="t10", user=user, exercise=ks, series=3, weight=40, level_weight_increase=2.5, reps=[12, 12, 12]
+        )  # 20 lv
+        TrainPlan.objects.all().delete()
         p1 = TrainPlan.objects.create(name="plan1", user=user)
         p1 = TrainPlan.objects.create(name="plan2", user=user)
         p1 = TrainPlan.objects.create(name="plan3", user=user)
         p1 = TrainPlan.objects.create(name="plan4", user=user)
         p1 = TrainPlan.objects.create(name="plan5", user=user)
         p1 = TrainPlan.objects.create(name="plan6", user=user)
-        pm1 = PlanModule.objects.create(module=t1, plan=p1)
-        pm2 = PlanModule.objects.create(module=t2, plan=p1)
-        pm3 = PlanModule.objects.create(module=t3, plan=p1)
-        pm4 = PlanModule.objects.create(module=t4, plan=p1)
+        pm1 = PlanModule.objects.create(module=t1, plan=p1, order_in_plan=1)
+        pm2 = PlanModule.objects.create(module=t2, plan=p1, order_in_plan=2)
+        pm3 = PlanModule.objects.create(module=t3, plan=p1, order_in_plan=3)
+        pm4 = PlanModule.objects.create(module=t4, plan=p1, order_in_plan=4)
         TrainHistory.objects.create(plan_module=pm1, reps=[8, 8, 8, 8])
         TrainHistory.objects.create(plan_module=pm2, reps=[4, 4, 4])
         TrainHistory.objects.create(plan_module=pm3, reps=[6, 6, 6])

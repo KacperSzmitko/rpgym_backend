@@ -68,9 +68,14 @@ class TrainPlan(models.Model):
 class PlanModule(models.Model):
     module = models.ForeignKey(TrainModule, on_delete=models.CASCADE)
     plan = models.ForeignKey(TrainPlan, on_delete=models.CASCADE)
+    done = models.BooleanField(default=False)
+    order_in_plan = models.IntegerField()
 
     def __str__(self) -> str:
         return str(self.pk)
+
+    class Meta:
+        unique_together = (('plan', 'module',), ('plan', 'order_in_plan',),)
 
 
 class TrainHistory(models.Model):
